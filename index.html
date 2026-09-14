@@ -1,0 +1,1656 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>DUNGEON RESTART - B1F</title>
+<style>
+:root{
+  --bg:#090b16; --panel:#11152a; --panel2:#171b34;
+  --line:#8d67d8; --line2:#5f4a93; --text:#f5efff;
+  --muted:#a9a0bf; --purple:#a96cff; --purple2:#d9c4ff;
+  --hp:#e95d7a; --mp:#69a9ff; --gold:#e8c86b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% 0,#1a1630 0,#090b16 48%,#05060d 100%);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+body{display:flex;justify-content:center;align-items:flex-start;padding:12px}
+button{font:inherit;color:inherit}
+.game{
+  width:min(100%,980px); min-height:calc(100vh - 24px);
+  border:1px solid var(--line2); border-radius:16px; overflow:hidden;
+  background:rgba(10,12,25,.94); box-shadow:0 0 35px rgba(111,65,190,.18);
+}
+.top{
+  padding:12px 16px 10px; background:linear-gradient(180deg,#17172d,#0d1020);
+  border-bottom:1px solid var(--line2);
+}
+.title-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.logo{font-weight:800;letter-spacing:.12em;color:#eadcff;font-size:clamp(16px,3vw,25px)}
+.floor{font-weight:700;color:var(--purple2);letter-spacing:.12em}
+.bars{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:9px}
+.bar-row{display:grid;grid-template-columns:32px 1fr 72px;align-items:center;gap:7px;font-size:12px}
+.bar{height:10px;border:1px solid #3a3153;border-radius:99px;background:#080a13;overflow:hidden}
+.fill{height:100%;width:100%;transition:width .2s}
+.hp{background:linear-gradient(90deg,#b83d61,#f27b92)}
+.mp{background:linear-gradient(90deg,#497fd0,#8dc2ff)}
+.value{text-align:right;color:#ddd4ec;font-variant-numeric:tabular-nums}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;padding:14px}
+.panel{border:1px solid var(--line2);background:linear-gradient(180deg,rgba(26,28,53,.94),rgba(13,16,31,.96));border-radius:12px}
+.map-panel{padding:12px}
+.map-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;color:var(--muted);font-size:12px}
+.map{
+  display:grid;
+  grid-template-columns:repeat(var(--map-cols,13),minmax(0,1fr));
+  grid-template-rows:repeat(var(--map-rows,9),minmax(0,1fr));
+  grid-auto-flow:row;
+  width:100%;
+  aspect-ratio:auto;
+  max-width:900px;
+  margin:auto;
+  border:2px solid #46385e;background:#05060c;
+  image-rendering:pixelated;
+  position:relative;isolation:isolate;overflow:hidden;
+  box-shadow:inset 0 0 45px rgba(0,0,0,.92),0 0 18px rgba(0,0,0,.28);
+}
+.tile{
+  position:relative;display:flex;align-items:flex-end;justify-content:center;
+  overflow:visible;min-width:0;min-height:0;
+  aspect-ratio:1 / 1;
+  width:100%;height:100%;
+  box-sizing:border-box;
+}
+.wall{
+  background-color:#1a1b25;
+  background-image:url("assets/asset_01_302ca00fe33f47ed.png");
+  background-repeat:repeat;
+  background-size:64px 64px;
+  border:1px solid #080910;
+  box-shadow:inset 0 2px rgba(190,190,205,.10),inset 0 -3px rgba(0,0,0,.45);
+  image-rendering:pixelated;
+  z-index:1;
+}
+.floor-tile{
+  background:
+    radial-gradient(circle at 18% 24%,rgba(194,184,212,.10) 0 1px,transparent 2px),
+    radial-gradient(circle at 73% 68%,rgba(0,0,0,.22) 0 1px,transparent 2px),
+    linear-gradient(135deg,rgba(150,140,175,.08),transparent 45%),
+    linear-gradient(180deg,#242438,#1a1b2b);
+  border:1px solid rgba(8,9,16,.78);
+  box-shadow:inset 0 1px rgba(215,205,225,.035),inset 0 -3px rgba(0,0,0,.24);
+  z-index:1;
+}
+.map::before{
+  content:"";position:absolute;inset:0;z-index:7;pointer-events:none;
+  background:radial-gradient(
+    circle at var(--light-x,12%) var(--light-y,16%),
+    rgba(0,0,0,0) 0 13%,
+    rgba(2,3,8,.10) 22%,
+    rgba(2,3,8,.24) 38%,
+    rgba(1,2,6,.48) 57%,
+    rgba(1,2,6,.72) 76%,
+    rgba(0,0,0,.86) 100%);
+  transition:background-position .18s ease;
+}
+.map::after{
+  content:"";position:absolute;inset:0;z-index:8;pointer-events:none;
+  box-shadow:inset 0 0 42px rgba(0,0,0,.70);
+}
+.fog{
+  position:absolute;inset:0;background:rgba(2,3,8,.52);z-index:6;
+  opacity:0;transition:opacity .18s ease;pointer-events:none;
+}
+.distant-fog{opacity:.58}
+.tile.visible .fog{opacity:0}
+.tile.revealed .fog{opacity:0}
+.torch{box-sizing:border-box;
+  position:absolute;left:50%;top:50%;width:58%;height:92%;
+  transform:translate(-50%,-50%);z-index:9;pointer-events:none;
+  filter:drop-shadow(0 0 5px rgba(194,103,255,.55));
+}
+.torch-bracket{
+  position:absolute;left:50%;bottom:8%;width:4px;height:58%;
+  transform:translateX(-50%);background:linear-gradient(90deg,#2b2038,#a36a99,#241a2f);
+  box-shadow:0 2px 2px #000;
+}
+.torch-cup{
+  position:absolute;left:50%;bottom:36%;width:62%;height:13%;
+  transform:translateX(-50%);background:linear-gradient(180deg,#d5a6dc,#713d7e 55%,#2b1c35);
+  border:1px solid #b579c2;border-radius:2px 2px 4px 4px;
+}
+.torch-flame{
+  position:absolute;left:50%;bottom:48%;width:43%;height:39%;
+  transform:translateX(-50%);transform-origin:50% 90%;
+  clip-path:polygon(50% 0,76% 30%,92% 62%,74% 92%,50% 100%,26% 92%,8% 62%,26% 30%);
+  background:linear-gradient(180deg,#fff7d5 0 20%,#efb7ff 42%,#9f55ee 74%,#512776 100%);
+  box-shadow:0 0 8px rgba(215,140,255,.85),0 0 16px rgba(156,81,235,.45);
+  animation:torchFlicker .72s steps(3,end) infinite;
+}
+.torch-flame::after{
+  content:"";position:absolute;left:30%;top:18%;width:40%;height:60%;
+  clip-path:polygon(50% 0,100% 70%,50% 100%,0 70%);background:#fffbe5;
+}
+.torch-glow{
+  position:absolute;left:50%;top:50%;width:230%;height:230%;
+  transform:translate(-50%,-50%);border-radius:50%;
+  background:radial-gradient(circle,rgba(190,101,255,.23),rgba(140,70,210,.07) 35%,transparent 70%);
+  animation:torchGlow 1.05s steps(3,end) infinite;z-index:-1;
+}
+@keyframes torchFlicker{
+  0%{transform:translateX(-50%) rotate(-3deg) scaleY(.94)}
+  33%{transform:translateX(-50%) rotate(2deg) scaleY(1.06)}
+  66%{transform:translateX(-50%) rotate(-1deg) scaleY(.98)}
+  100%{transform:translateX(-50%) rotate(3deg) scaleY(1.02)}
+}
+@keyframes torchGlow{
+  0%{transform:translate(-50%,-50%) scale(.92);opacity:.7}
+  50%{transform:translate(-50%,-50%) scale(1.08);opacity:1}
+  100%{transform:translate(-50%,-50%) scale(.96);opacity:.78}
+}
+.stair{color:#d6b9ff;text-shadow:0 0 9px #9b58ff;font-size:clamp(18px,3vw,28px);z-index:9}
+.chest{font-size:clamp(15px,2.5vw,24px);filter:drop-shadow(0 0 5px #d5a943);z-index:9}
+.enemy{font-size:clamp(15px,2.5vw,24px);filter:drop-shadow(0 0 5px #b55cff);z-index:9}
+.enemy.skeleton,.enemy.skeleton_queen{
+  width:80%;height:80%;font-size:0;
+  background-position:center;background-repeat:no-repeat;background-size:contain;
+  image-rendering:pixelated;
+}
+.enemy.skeleton{background-image:url('skeleton_lord.png');}
+.enemy.skeleton_queen{background-image:url('skeleton_queen.png');}
+.enemy.thief_tanuki{width:90%;height:90%;font-size:0;background:url('thief_tanuki.png') center/contain no-repeat;image-rendering:pixelated;filter:drop-shadow(0 0 6px rgba(255,205,70,.85));}
+
+.player-sprite{
+  position:absolute;
+  left:50%;
+  bottom:0;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  image-rendering:pixelated;
+  filter:drop-shadow(0 3px 3px rgba(0,0,0,.68));
+  z-index:50;
+  pointer-events:none;
+  transform:translateX(-50%) translateY(0);
+}
+.player-sprite.walking{animation:playerBob .28s steps(4,end) infinite}
+@keyframes playerBob{
+  0%{transform:translateX(-50%) translateY(0)}
+  25%{transform:translateX(-50%) translateY(-1px)}
+  50%{transform:translateX(-50%) translateY(-2px)}
+  75%{transform:translateX(-50%) translateY(-1px)}
+}
+.player-light{
+  position:absolute;left:50%;top:50%;width:280%;height:280%;transform:translate(-50%,-50%);
+  border-radius:50%;z-index:11;pointer-events:none;
+  background:radial-gradient(circle,rgba(184,123,255,.11),rgba(112,74,176,.045) 35%,transparent 70%);
+  mix-blend-mode:screen;
+}
+.hint{margin-top:9px;text-align:center;color:#aaa2b9;font-size:12px}
+margin-top:9px;text-align:center;color:#aaa2b9;font-size:12px}
+
+.side{padding:12px}
+.side h2{font-size:13px;letter-spacing:.12em;margin:0 0 10px;color:var(--purple2)}
+.avatar{height:150px;display:flex;justify-content:center;align-items:center;border:1px solid #40345b;border-radius:9px;background:radial-gradient(circle,#292041,#0c0e1b)}
+.avatar img{height:135px;width:105px;object-fit:contain;image-rendering:pixelated}
+.stat{margin-top:10px;display:grid;grid-template-columns:1fr auto;gap:6px;font-size:13px}
+.stat span:nth-child(odd){color:var(--muted)}
+.gold{color:var(--gold)}
+.actions{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:12px}
+.action,.move{
+  border:1px solid #5c4b83;background:linear-gradient(180deg,#25203e,#17152a);
+  border-radius:9px;padding:10px 7px;cursor:pointer;
+}
+.action:active,.move:active{transform:translateY(1px);background:#322553}
+.log{margin-top:10px;min-height:80px;padding:9px;border:1px solid #3d3455;border-radius:9px;color:#c7bfd7;font-size:12px;line-height:1.55}
+
+.controls{padding:0 14px 14px}
+.controls-inner{display:flex;justify-content:center;align-items:center;gap:18px}
+.dpad{display:grid;grid-template-columns:54px 54px 54px;grid-template-rows:54px 54px 54px;gap:4px}
+.move{padding:0;font-size:21px;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+.move.up{grid-column:2}.move.left{grid-column:1;grid-row:2}.move.wait{grid-column:2;grid-row:2;font-size:13px;color:#a99bc3}.move.right{grid-column:3;grid-row:2}.move.down{grid-column:2;grid-row:3}
+.bgm{padding:10px 12px;border:1px solid #4e416e;border-radius:10px;background:#121326;color:#d9cfff;font-size:12px}
+.bgm strong{display:block;color:#f3eaff;margin-bottom:4px}
+
+.overlay{position:fixed;inset:0;background:rgba(4,5,12,.72);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
+.overlay.show{display:flex}
+.dialog{width:min(92vw,420px);border:1px solid var(--line);border-radius:14px;background:#111326;padding:20px;box-shadow:0 0 30px rgba(126,78,210,.25);text-align:center}
+.dialog h3{margin:0 0 8px;color:#e8d9ff}.dialog p{color:#c1b8d1;font-size:14px;line-height:1.6}
+.dialog button{border:1px solid #6b55a0;border-radius:9px;background:#241d3c;padding:10px 18px;margin-top:8px;cursor:pointer}
+
+@media (max-width:700px){
+  body{padding:0}.game{min-height:100vh;border-radius:0;border-left:0;border-right:0}
+  .main{grid-template-columns:1fr;padding:10px;gap:10px}
+  .side{display:grid;grid-template-columns:95px 1fr;gap:10px;align-items:start}
+  .side h2{grid-column:1/-1;margin-bottom:0}.avatar{height:105px}.avatar img{height:98px;width:78px}
+  .actions{grid-column:1/-1}.log{grid-column:1/-1}
+  .bars{grid-template-columns:1fr}.bar-row{grid-template-columns:28px 1fr 66px}
+  .controls{padding:0 10px 10px}.controls-inner{flex-direction:column;gap:10px}
+  .bgm{width:100%;text-align:center}
+}
+
+.player-sprite.idle{
+  animation:idleBreath 1.8s steps(4,end) infinite;
+}
+@keyframes idleBreath{
+  0%{transform:translateY(0)}
+  25%{transform:translateY(-1px)}
+  50%{transform:translateY(0)}
+  75%{transform:translateY(1px)}
+}
+
+/* ===== Battle ===== */
+#battleScreen{display:none;position:fixed;inset:0;z-index:30;overflow:auto;background:#060811}
+#battleScreen.show{display:flex;justify-content:center;align-items:flex-start}
+.battle-wrap{width:min(100%,1180px);min-height:100%;padding:12px 14px 18px;box-sizing:border-box}
+.battle-top{display:flex;justify-content:space-between;align-items:center;border:1px solid #6750a2;border-radius:11px;padding:10px 13px;background:rgba(8,10,24,.94);position:relative;z-index:20}
+.battle-title{font-weight:800;letter-spacing:.18em;color:#eadcff}
+.turn-badge{font-size:12px;color:#cfc3e9}
+.battle-stage{margin-top:12px;position:relative;height:clamp(330px,52vw,560px);overflow:hidden;border:1px solid #6750a2;border-radius:13px;background:
+  radial-gradient(ellipse at 50% 48%,rgba(255,181,100,.16),transparent 34%),
+  linear-gradient(180deg,#080b18 0 43%,#151321 43% 100%);box-shadow:inset 0 0 70px rgba(0,0,0,.78)}
+/* Deep stone corridor: ceiling/walls recede toward a vanishing point. */
+.battle-stage::before{content:"";position:absolute;inset:0;z-index:0;background:
+  linear-gradient(90deg,rgba(5,7,13,.96),rgba(22,23,38,.72) 16%,rgba(34,28,43,.18) 34%,rgba(34,28,43,.12) 66%,rgba(22,23,38,.72) 84%,rgba(5,7,13,.96)),
+  repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 2px,transparent 2px 32px),
+  radial-gradient(ellipse at 50% 34%,rgba(68,47,86,.28),transparent 46%);pointer-events:none}
+.battle-stage::after{content:"";position:absolute;left:0;right:0;bottom:0;height:56%;z-index:1;background:
+  linear-gradient(170deg,transparent 0 35%,rgba(0,0,0,.22) 36% 37%,transparent 38%),
+  repeating-linear-gradient(0deg,rgba(0,0,0,.26) 0 2px,transparent 2px 43px),
+  repeating-linear-gradient(90deg,rgba(0,0,0,.22) 0 2px,transparent 2px 72px),
+  linear-gradient(180deg,rgba(91,75,91,.10),rgba(10,11,17,.82));
+  clip-path:polygon(0 16%,100% 16%,100% 100%,0 100%);pointer-events:none}
+.battle-dungeon-decor{position:absolute;inset:0;z-index:2;pointer-events:none}
+.battle-dungeon-decor .arch{position:absolute;left:50%;top:7%;width:34%;height:52%;transform:translateX(-50%);border:24px solid #171a28;border-bottom:0;border-radius:48% 48% 0 0;box-shadow:0 0 0 8px #090b13, inset 0 0 35px rgba(0,0,0,.8)}
+.battle-dungeon-decor .arch::after{content:"";position:absolute;left:17%;right:17%;top:16%;bottom:0;background:linear-gradient(180deg,#070913,#0e0b16);box-shadow:inset 0 0 30px #000}
+.battle-dungeon-decor .pillar{position:absolute;bottom:28%;width:10%;height:53%;background:linear-gradient(90deg,#0b0d15,#292a3a 46%,#0b0d15);box-shadow:inset 0 0 0 3px rgba(210,205,230,.08),0 8px 20px #000}
+.battle-dungeon-decor .pillar.l{left:5%}.battle-dungeon-decor .pillar.r{right:5%}
+.battle-dungeon-decor .torch{position:absolute;width:18px;height:30px;border-radius:4px 4px 8px 8px;background:linear-gradient(#ffefd0,#ff9d3e 55%,#6b2a78);box-shadow:0 0 12px #ffb35b,0 0 42px rgba(255,157,62,.48)}
+.battle-dungeon-decor .torch::after{content:"";position:absolute;left:50%;top:-22px;width:24px;height:30px;transform:translateX(-50%);border-radius:50% 50% 45% 45%;background:radial-gradient(circle at 50% 75%,#fff8ce 0 18%,#ffc65f 30%,#e55a37 58%,transparent 72%);filter:drop-shadow(0 0 8px #ffb45d)}
+.battle-dungeon-decor .t1{left:18%;top:22%}.battle-dungeon-decor .t2{right:18%;top:22%}.battle-dungeon-decor .t3{left:34%;top:31%;transform:scale(.7)}.battle-dungeon-decor .t4{right:34%;top:31%;transform:scale(.7)}
+.fighter{position:absolute;z-index:8;top:0;bottom:0;width:38%;border:0;border-radius:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;overflow:visible;text-shadow:0 2px 3px #000}
+#enemyFighter{left:8%}#heroFighter{right:8%}
+.fighter-name{position:absolute;top:14px;font-weight:800;color:#eee5fb;letter-spacing:.08em;padding:5px 10px;border-radius:8px;background:rgba(7,9,19,.58);border:1px solid rgba(116,89,165,.5);z-index:10}
+.enemy-img{width:clamp(90px,12vw,145px);height:clamp(90px,12vw,145px);image-rendering:pixelated;object-fit:contain;margin:0 0 34px;filter:drop-shadow(0 8px 8px rgba(0,0,0,.72))}
+.hero-battle-img{width:clamp(130px,17vw,205px);height:clamp(130px,17vw,205px);object-fit:contain;image-rendering:pixelated;filter:drop-shadow(0 9px 9px rgba(0,0,0,.78));margin:0 0 18px}
+.battle-hero-wrap{width:220px;height:220px;position:relative;display:flex;align-items:flex-end;justify-content:center}
+.battle-hero-wrap .hero-battle-img{width:205px;height:205px;object-fit:contain;image-rendering:pixelated}
+.battle-hp{width:min(82%,300px);height:12px;border:1px solid #3b3150;background:#070912;border-radius:99px;overflow:hidden;margin-top:8px}
+.battle-hp > div{height:100%;background:linear-gradient(90deg,#c83e62,#f17891);transition:width .25s}
+.battle-hp.enemybar > div{background:linear-gradient(90deg,#7c4db5,#b37ae6)}
+.battle-hptext{font-size:12px;color:#c8bfd7;margin:3px 0 22px}
+.battle-log{margin-top:12px;border:1px solid #4a3b68;border-radius:11px;padding:11px 13px;background:#0f1122;min-height:58px;color:#d8d0e5;font-size:13px;line-height:1.55}
+.battle-actions{margin-top:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.battle-btn{border:1px solid #604b86;background:linear-gradient(180deg,#292143,#17152a);border-radius:10px;padding:13px 8px;cursor:pointer;font-weight:700}
+.battle-btn:disabled{opacity:.42;cursor:not-allowed}.battle-btn:active:not(:disabled){transform:translateY(1px)}
+.battle-note{text-align:center;color:#9e95b0;font-size:11px;margin-top:8px}
+.fighter.attack{animation:battleAttack .22s ease-in-out}.fighter.hit{animation:battleHit .22s ease-in-out}
+@keyframes battleAttack{50%{transform:translateX(14px) scale(1.02)}}
+@keyframes battleHit{25%{transform:translateX(-5px)}50%{transform:translateX(5px)}75%{transform:translateX(-3px)}}
+@media(max-width:700px){
+  #battleScreen{align-items:flex-start}.battle-wrap{padding:8px 10px 14px}.battle-stage{height:390px}
+  .fighter{width:45%}.fighter-name{font-size:11px}.enemy-img{width:88px;height:88px;margin-bottom:26px}.battle-hero-wrap{width:150px;height:150px}.battle-hero-wrap .hero-battle-img{width:145px;height:145px}.battle-hptext{margin-bottom:12px}.battle-actions{grid-template-columns:1fr 1fr}
+  .battle-dungeon-decor .arch{width:44%;height:48%;border-width:16px}.battle-dungeon-decor .pillar{height:48%;width:13%}
+}
+
+
+/* Natural battle motion */
+.battle-fighter-img{
+  transform-origin:50% 78%;
+}
+.hero-battle-img.idle-motion{animation:heroIdle 1.8s ease-in-out infinite}
+.enemy-img.idle-motion{animation:enemyIdle 1.55s ease-in-out infinite}
+@keyframes heroIdle{
+  0%,100%{transform:translateY(0) rotate(0deg)}
+  50%{transform:translateY(-3px) rotate(-1deg)}
+}
+@keyframes enemyIdle{
+  0%,100%{transform:translateY(0) scale(1)}
+  50%{transform:translateY(-2px) scale(1.015)}
+}
+.hero-battle-img.attack-windup{animation:heroWindup .09s ease-out forwards}
+.hero-battle-img.attack-swing{animation:heroSwing .20s cubic-bezier(.2,.8,.25,1) forwards}
+.hero-battle-img.attack-follow{animation:heroFollow .11s ease-out forwards}
+.hero-battle-img.skill-windup{animation:skillWindup .12s ease-out forwards}
+.hero-battle-img.skill-swing{animation:skillSwing .22s cubic-bezier(.15,.85,.25,1) forwards}
+.hero-battle-img.skill-follow{animation:skillFollow .12s ease-out forwards}
+.hero-battle-img.hit-motion{animation:heroHit .28s ease-out forwards}
+.hero-battle-img.win-motion{animation:heroWin .50s ease-in-out forwards}
+.enemy-img.attack-motion{animation:enemyAttack .20s ease-out forwards}
+.enemy-img.hit-motion{animation:none}
+.enemy-img.frame-reaction{animation:none;will-change:transform}
+@keyframes heroWindup{to{transform:translate(-7px,3px) rotate(-7deg) scale(.985)}}
+@keyframes heroSwing{
+  0%{transform:translate(-7px,3px) rotate(-7deg) scale(.985)}
+  28%{transform:translate(1px,0) rotate(-2deg) scale(1)}
+  62%{transform:translate(13px,-2px) rotate(9deg) scale(1.02)}
+  100%{transform:translate(17px,0) rotate(4deg) scale(1)}
+}
+@keyframes heroFollow{
+  0%{transform:translate(17px,0) rotate(4deg)}
+  55%{transform:translate(9px,1px) rotate(1deg)}
+  100%{transform:translate(5px,0) rotate(0deg)}
+}
+@keyframes skillWindup{to{transform:translate(-5px,-7px) rotate(-14deg) scale(1.01)}}
+@keyframes skillSwing{
+  0%{transform:translate(-5px,-7px) rotate(-14deg) scale(1.01)}
+  30%{transform:translate(-1px,-9px) rotate(-6deg) scale(1.02)}
+  64%{transform:translate(11px,-12px) rotate(12deg) scale(1.045)}
+  100%{transform:translate(19px,-1px) rotate(3deg) scale(1)}
+}
+@keyframes skillFollow{
+  0%{transform:translate(19px,-1px) rotate(3deg)}
+  55%{transform:translate(10px,1px) rotate(1deg)}
+  100%{transform:translate(5px,0) rotate(0deg)}
+}
+@keyframes heroHit{0%{transform:translateX(0)}20%{transform:translateX(-12px) rotate(-5deg)}45%{transform:translateX(7px) rotate(3deg)}70%{transform:translateX(-4px) rotate(-2deg)}100%{transform:translateX(0) rotate(0)}}
+@keyframes heroWin{0%{transform:translateY(0) rotate(0)}30%{transform:translateY(-8px) rotate(-5deg)}65%{transform:translateY(-3px) rotate(5deg)}100%{transform:translateY(0) rotate(0)}}
+@keyframes enemyAttack{0%{transform:translateX(0)}45%{transform:translateX(-15px)}100%{transform:translateX(0)}}
+.enemy-img.knockback-motion{animation:none}
+
+
+.slash-effect{
+  position:absolute; width:170px; height:110px; border:9px solid #d9b7ff;
+  border-left-color:transparent; border-bottom-color:transparent;
+  border-radius:50%; transform:rotate(-20deg) scale(.55);
+  opacity:0; pointer-events:none; filter:drop-shadow(0 0 7px #9d57ff);
+}
+.slash-effect.show{animation:slashFx .26s ease-out forwards}
+.slash-effect.skill{width:205px;height:135px;border-width:11px;filter:drop-shadow(0 0 11px #b96aff)}
+@keyframes slashFx{
+  0%{opacity:0;transform:translate(0,8px) rotate(-35deg) scale(.35)}
+  25%{opacity:1}
+  100%{opacity:0;transform:translate(28px,-4px) rotate(-10deg) scale(1.08)}
+}
+.battle-impact{
+  position:absolute; width:54px;height:54px;border-radius:50%;
+  border:3px solid #f0dcff; opacity:0; pointer-events:none;
+}
+.battle-impact.show{animation:impactFx .24s ease-out forwards}
+@keyframes impactFx{
+  0%{opacity:0;transform:scale(.3)}
+  25%{opacity:1}
+  100%{opacity:0;transform:scale(1.8)}
+}
+
+
+.battle-hero-wrap{width:180px;height:180px;position:relative;display:flex;align-items:center;justify-content:center}
+.battle-hero-wrap .hero-battle-img{width:175px;height:175px;object-fit:contain;image-rendering:pixelated}
+.battle-hero-wrap .slash-effect{left:8px;top:36px}
+.battle-hero-wrap .battle-impact{right:10px;top:58px}
+
+
+.hit-stop .battle-fighter-img,
+.hit-stop .enemy-img,
+.hit-stop .slash-effect,
+.hit-stop .battle-impact{
+  animation-play-state:paused !important;
+}
+
+
+.impact-flash{
+  position:absolute;left:50%;top:50%;width:90px;height:90px;
+  transform:translate(-50%,-50%);border-radius:50%;
+  border:3px solid rgba(235,205,255,.9);
+  box-shadow:0 0 18px rgba(174,103,255,.9), inset 0 0 18px rgba(220,180,255,.45);
+  opacity:0;pointer-events:none;
+}
+.impact-flash.show{animation:impactFlash .16s ease-out forwards}
+@keyframes impactFlash{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.45)}
+  25%{opacity:1}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(1.45)}
+}
+
+
+
+/* ===== B1F Camera / Fade-in Transition ===== */
+#floorTransition{
+  position:fixed;inset:0;z-index:95;pointer-events:none;
+  background:#05050c;opacity:0;
+}
+#floorTransition.active{
+  opacity:1;
+  animation:b1fFadeThrough 1.15s ease-in-out forwards;
+}
+#gameMain.b1f-camera-enter .main{
+  transform-origin:50% 54%;
+  animation:b1fCameraReveal 1.15s cubic-bezier(.2,.75,.25,1) forwards;
+}
+#gameMain.b1f-camera-enter .top,
+#gameMain.b1f-camera-enter .controls{
+  opacity:0;
+  animation:b1fUiReveal .65s .35s ease-out forwards;
+}
+@keyframes b1fFadeThrough{
+  0%{opacity:1}
+  28%{opacity:1}
+  100%{opacity:0}
+}
+@keyframes b1fCameraReveal{
+  0%{opacity:.72;transform:scale(1.075) translateY(10px)}
+  35%{opacity:.9;transform:scale(1.035) translateY(5px)}
+  100%{opacity:1;transform:scale(1) translateY(0)}
+}
+@keyframes b1fUiReveal{
+  from{opacity:0}
+  to{opacity:1}
+}
+@media(prefers-reduced-motion:reduce){
+  #floorTransition.active,
+  #gameMain.b1f-camera-enter .main,
+  #gameMain.b1f-camera-enter .top,
+  #gameMain.b1f-camera-enter .controls{
+    animation:none;opacity:1;transform:none;
+  }
+}
+
+/* ===== Title / Dungeon Entry Transition ===== */
+#titleScreen{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:#05050c;overflow:hidden;opacity:0;animation:titleScreenFadeIn 1.4s ease-out forwards}
+#titleScreen.hide{display:none}
+.title-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:titleBgFadeIn 2.2s ease-out forwards}
+.title-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(3,4,10,.08),rgba(3,4,10,.08) 45%,rgba(3,4,10,.72));z-index:1}
+.title-entry-dark{position:absolute;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse at 63% 67%,rgba(5,7,20,.08) 0%,rgba(5,7,20,.25) 38%,rgba(2,3,10,.92) 100%);opacity:0}
+#titleScreen.entering .title-entry-dark{animation:titleEntryDark 2.45s ease-in forwards}
+.title-hero-wrap{position:absolute;z-index:3;left:28.2%;bottom:8.3%;width:min(25.5vw,390px);min-width:190px;transform-origin:58% 88%;pointer-events:none}
+.title-hero-cutout{display:block;width:100%;height:auto;filter:drop-shadow(0 8px 9px rgba(0,0,0,.48));clip-path:polygon(34% 0,58% 0,66% 10%,68% 26%,76% 24%,91% 11%,99% 11%,100% 22%,90% 34%,79% 44%,68% 52%,62% 59%,66% 72%,64% 88%,57% 100%,43% 100%,38% 92%,29% 100%,18% 100%,9% 92%,0 80%,0 69%,10% 58%,20% 52%,18% 39%,20% 21%)}
+.title-hero-step{animation:titleHeroStep 2.35s cubic-bezier(.22,.72,.25,1) forwards}
+@keyframes titleScreenFadeIn{from{opacity:0}to{opacity:1}}
+@keyframes titleBgFadeIn{from{opacity:0;transform:scale(1.025)}to{opacity:1;transform:scale(1.015)}}
+@keyframes titleHeroStep{0%{transform:translate(0,0) scale(1)}12%{transform:translate(1.2%,-.7%) scale(1.005)}25%{transform:translate(7%,-5%) scale(.985)}38%{transform:translate(15%,-10%) scale(.955)}50%{transform:translate(25%,-16%) scale(.91)}62%{transform:translate(37%,-23%) scale(.855)}75%{transform:translate(49%,-31%) scale(.79)}87%{transform:translate(58%,-39%) scale(.72)}100%{transform:translate(66%,-47%) scale(.62);opacity:.05}}
+@keyframes titleEntryDark{0%{opacity:0}45%{opacity:.10}75%{opacity:.34}100%{opacity:.88}}
+.title-content{position:relative;z-index:4;width:min(92vw,620px);margin-top:auto;margin-bottom:7vh;display:flex;flex-direction:column;align-items:center;text-align:center;opacity:0;transform:translateY(10px);animation:titleContentFadeIn .9s .45s ease-out forwards}
+.title-content.leaving{animation:titleContentLeave .34s ease-in forwards;pointer-events:none}
+@keyframes titleContentFadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes titleContentLeave{from{opacity:1;transform:translateY(0)}to{opacity:0;transform:translateY(8px)}}
+.title-logo{margin:0;color:#f4eaff;font-size:clamp(34px,8vw,72px);font-weight:900;letter-spacing:.14em;line-height:1;text-shadow:0 3px 0 #39265d,0 0 22px rgba(188,123,255,.75)}
+.title-sub{margin:10px 0 24px;color:#d8c9ee;font-size:clamp(11px,2.5vw,15px);letter-spacing:.28em;text-shadow:0 2px 4px #000}
+.title-start{min-width:220px;padding:14px 34px;border:1px solid #c09aee;border-radius:11px;color:#fff;background:linear-gradient(180deg,rgba(91,55,130,.94),rgba(37,24,59,.96));box-shadow:0 0 20px rgba(157,91,232,.35),inset 0 1px rgba(255,255,255,.16);font-weight:800;letter-spacing:.18em;cursor:pointer;transition:transform .16s ease,box-shadow .2s ease,border-color .2s ease,background .2s ease}
+.title-start:hover{transform:translateY(-2px) scale(1.025);border-color:#ead7ff;background:linear-gradient(180deg,rgba(126,80,177,.98),rgba(54,33,82,.98));box-shadow:0 0 30px rgba(188,123,255,.62),0 7px 18px rgba(0,0,0,.35),inset 0 1px rgba(255,255,255,.22)}
+.title-start:focus-visible{outline:2px solid #ead7ff;outline-offset:4px}.title-start:active{transform:translateY(1px) scale(.995)}.title-start:disabled{opacity:.65;cursor:default}
+.title-audio-control{width:min(260px,72vw);margin-top:15px;padding:9px 13px 10px;border:1px solid rgba(205,181,232,.42);border-radius:10px;background:rgba(10,7,19,.54);backdrop-filter:blur(3px);box-shadow:0 5px 16px rgba(0,0,0,.22)}
+.title-audio-row{display:flex;align-items:center;gap:9px;color:#eee3f7;font-size:11px;text-shadow:0 1px 3px #000}.title-volume-icon{font-size:14px;min-width:18px}#titleVolume{flex:1;min-width:0;accent-color:#b987e8;cursor:pointer}#titleVolumeValue{width:38px;text-align:right;color:#d9c9e8;font-variant-numeric:tabular-nums}.title-bgm-note{margin-top:8px;color:#c7bbd7;font-size:11px;text-shadow:0 1px 3px #000}
+@media(max-width:700px){.title-hero-wrap{left:23%;bottom:7.5%;width:42vw;min-width:160px}.title-content{margin-bottom:6vh}.title-logo{letter-spacing:.10em}.title-start{min-width:190px}}
+@media(prefers-reduced-motion:reduce){#titleScreen,.title-bg,.title-content{animation:none;opacity:1;transform:none}.title-hero-step,#titleScreen.entering .title-entry-dark{animation:none}}
+
+
+/* ===== 3D-LIKE DUNGEON VISUAL PASS ===== */
+.game{width:min(100%,1400px)}
+.main{grid-template-columns:minmax(0,1fr) 285px;gap:16px;padding:16px}
+.map-panel{padding:14px}
+.map{
+  max-width:1100px;
+  border:3px solid #2c2545;
+  border-radius:4px;
+  background:#05060b;
+  box-shadow:inset 0 0 70px rgba(0,0,0,.96),0 12px 30px rgba(0,0,0,.45);
+}
+.tile{
+  width:100%;height:100%;
+  position:relative;
+  overflow:visible;
+  isolation:isolate;
+}
+.floor-tile{
+  background:
+    linear-gradient(135deg,rgba(255,255,255,.055),transparent 24%,transparent 72%,rgba(0,0,0,.24)),
+    radial-gradient(circle at 22% 22%,rgba(210,205,225,.09) 0 1px,transparent 2px),
+    radial-gradient(circle at 76% 70%,rgba(0,0,0,.28) 0 2px,transparent 3px),
+    linear-gradient(145deg,#3a3a4b 0%,#272737 48%,#171927 100%);
+  border:1px solid #0b0c13;
+  box-shadow:
+    inset 0 1px rgba(255,255,255,.07),
+    inset 0 -4px 8px rgba(0,0,0,.34),
+    0 2px 0 rgba(0,0,0,.28);
+}
+.floor-tile::after{
+  content:"";
+  position:absolute;
+  left:5%;right:5%;bottom:4%;
+  height:18%;
+  border-top:1px solid rgba(0,0,0,.35);
+  background:linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.22));
+  pointer-events:none;
+  z-index:2;
+}
+.wall{
+  background-color:#171a26;
+  border:1px solid #07080e;
+  box-shadow:
+    inset 0 2px rgba(225,225,235,.12),
+    inset 2px 0 rgba(170,165,190,.07),
+    inset 0 -7px 0 rgba(0,0,0,.42),
+    0 4px 0 rgba(0,0,0,.35);
+  transform:translateZ(0);
+}
+.wall::before{
+  content:"";
+  position:absolute;
+  left:4%;right:-3%;top:-5%;
+  height:13%;
+  background:linear-gradient(180deg,rgba(205,202,218,.20),rgba(70,69,88,.12));
+  border-top:1px solid rgba(240,235,255,.12);
+  clip-path:polygon(2% 25%,98% 0,100% 72%,3% 100%);
+  pointer-events:none;
+  z-index:3;
+}
+.wall::after{
+  content:"";
+  position:absolute;
+  top:7%;right:-7%;
+  width:8%;height:91%;
+  background:linear-gradient(90deg,rgba(0,0,0,.20),rgba(0,0,0,.72));
+  clip-path:polygon(0 5%,100% 0,100% 100%,0 94%);
+  pointer-events:none;
+  z-index:3;
+}
+.map::before{
+  z-index:15;
+  background:
+    radial-gradient(circle at var(--light-x,12%) var(--light-y,16%),
+      rgba(255,219,178,.08) 0 9%,
+      rgba(164,107,255,.04) 16%,
+      rgba(0,0,0,.10) 29%,
+      rgba(0,0,0,.30) 49%,
+      rgba(0,0,0,.66) 74%,
+      rgba(0,0,0,.90) 100%);
+  pointer-events:none;
+}
+.map::after{
+  z-index:16;
+  box-shadow:
+    inset 0 0 70px rgba(0,0,0,.82),
+    inset 0 -35px 45px rgba(0,0,0,.28);
+}
+.torch{z-index:20}
+.torch-glow{
+  width:360%;height:360%;
+  background:radial-gradient(circle,
+    rgba(255,190,116,.22),
+    rgba(193,111,255,.10) 30%,
+    transparent 68%);
+}
+.torch-flame{
+  background:linear-gradient(180deg,#fff8d6 0 18%,#ffc778 40%,#d85eff 72%,#592b7f 100%);
+  box-shadow:0 0 10px rgba(255,188,105,.95),0 0 25px rgba(168,82,255,.55);
+}
+.player-sprite{
+  left:50%;
+  bottom:8%;
+  width:88%;
+  height:88%;
+  object-fit:contain;
+  object-position:center bottom;
+  transform:translateX(-50%) !important;
+  z-index:40;
+}
+.player-sprite.walking,.player-sprite.idle{animation:none !important}
+.player-light{z-index:19;width:330%;height:330%}
+.enemy,.chest,.stair{z-index:30;position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+
+.door{font-size:22px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.7));z-index:24}
+.door.open{opacity:.7}
+.enemy.boss-enemy{font-size:30px;color:#e7d38b;text-shadow:0 0 10px rgba(255,80,50,.8),0 3px 5px #000;z-index:35}
+
+.fog{z-index:12}
+.distant-fog{opacity:.46}
+.side{padding:14px}
+@media(max-width:900px){
+  .game{width:100%}
+  .main{grid-template-columns:1fr}
+  .map{max-width:none}
+  .side{order:2}
+}
+@media(min-width:901px){
+  .map-panel{min-width:0}
+}
+#battleScreen:not(.show){display:none !important}
+
+</style>
+</head>
+<body>
+<div id="titleScreen">
+  <img class="title-bg" src="assets/asset_02_250e278b39f662b2.jpg" alt="DUNGEON RESTART タイトル画面">
+  <div class="title-shade"></div><div class="title-entry-dark"></div>
+  <div class="title-hero-wrap" id="titleHeroWrap"><img class="title-hero-cutout" src="assets/asset_03_3f8a97ee2dd9569b.png" alt="主人公"></div>
+  <div class="title-content" id="titleContent">
+    <h1 class="title-logo">DUNGEON RESTART</h1><div class="title-sub">THE FIVE SOULS RESTART</div>
+    <button class="title-start" id="titleStartBtn">GAME START</button>
+    <div class="title-audio-control" aria-label="タイトルBGM音量"><div class="title-audio-row"><span class="title-volume-icon">♪</span><input id="titleVolume" type="range" min="0" max="100" value="62" aria-label="タイトルBGM音量"><span id="titleVolumeValue">62%</span></div></div>
+    <div class="title-bgm-note">♪ Moonlit Fox Path　（GAME STARTで再生）</div>
+  </div>
+  <audio id="titleBgm" autoplay playsinline src="assets/asset_04_9622f7861d190ae6.mp3" loop preload="auto"></audio>
+  <audio id="battleBgm" src="assets/asset_05_6deba7cc97126bb6.mp3" loop preload="auto"></audio>
+  <audio id="bossBattleBgm" src="assets/asset_06_d5088df4eb5d45e6.mp3" loop preload="auto"></audio>
+</div>
+<div id="floorTransition" aria-hidden="true"></div>
+<div class="game" id="gameMain" style="display:none">
+  <header class="top">
+    <div class="title-row">
+      <div class="logo">DUNGEON RESTART</div>
+      <div class="floor">B1F</div>
+    </div>
+    <div class="bars">
+      <div class="bar-row"><b>HP</b><div class="bar"><div id="hpFill" class="fill hp"></div></div><div id="hpText" class="value">100/100</div></div>
+      <div class="bar-row"><b>MP</b><div class="bar"><div id="mpFill" class="fill mp"></div></div><div id="mpText" class="value">30/30</div></div>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="panel map-panel">
+      <div class="map-head"><span>地下迷宮・第1階層</span><span>探索中</span></div>
+      <div id="map" class="map" aria-label="B1F dungeon map"></div>
+      <div class="hint">十字キー・WASD・矢印キーで移動できます</div>
+    </section>
+
+    <aside class="panel side">
+      <h2>PLAYER STATUS</h2>
+      <div class="avatar"><img src="assets/asset_07_0486ad84783295b4.png" alt="狐耳フードの主人公"></div>
+      <div>
+        <div class="stat"><span>Lv</span><b id="lv">1</b><span>ATK</span><b id="atk">15</b><span>DEF</span><b id="def">8</b><span>SPD</span><b id="spd">10</b><span>GOLD</span><b class="gold" id="gold">0</b><span>EXP</span><b id="expText">0/100</b><span>POTION</span><b id="potionText">3</b></div>
+      </div>
+      <div class="actions">
+        <button class="action" id="itemBtn">ITEM</button>
+        <button class="action" id="statusBtn">STATUS</button>
+        <button class="action" id="menuBtn">MENU</button>
+      </div>
+      <div class="log" id="log">ダンジョンB1Fへようこそ。<br>探索を開始してください。</div>
+    </aside>
+  </main>
+
+  <section class="controls">
+    <div class="controls-inner">
+      <div class="dpad">
+        <button class="move up" data-dir="up">▲</button>
+        <button class="move left" data-dir="left">◀</button>
+        <button class="move wait" data-dir="wait">●</button>
+        <button class="move right" data-dir="right">▶</button>
+        <button class="move down" data-dir="down">▼</button>
+      </div>
+      <button class="bgm" id="bgmBtn"><strong>♪ ダンジョン攻略中</strong>BGMを再生</button>
+    </div>
+  </section>
+</div>
+
+
+<div id="battleScreen">
+  <div class="battle-wrap">
+    <div class="battle-top">
+      <div class="battle-title">BATTLE</div><span class="battle-floor" style="display:none">B1F</span>
+      <div class="turn-badge" id="turnBadge">PLAYER TURN</div>
+    </div>
+
+    <div class="battle-stage">
+<div class="battle-dungeon-decor" aria-hidden="true">
+      <div class="arch"></div><div class="pillar l"></div><div class="pillar r"></div>
+      <div class="torch t1"></div><div class="torch t2"></div><div class="torch t3"></div><div class="torch t4"></div>
+    </div>
+          <section class="fighter" id="enemyFighter">
+        <div class="fighter-name" id="enemyName">PURPLE SLIME</div>
+        <img class="enemy-img idle-motion" id="enemyBattleImg" src="assets/asset_08_9e4b93bf95702bd2.png" alt="敵">
+        <div class="battle-hp enemybar"><div id="enemyHpFill"></div></div>
+        <div class="battle-hptext" id="enemyHpText">40 / 40</div>
+      </section>
+
+      <section class="fighter" id="heroFighter">
+        <div class="fighter-name">FOX HOODED HERO</div>
+        <div class="battle-hero-wrap"><img id="heroBattleImg" class="hero-battle-img battle-fighter-img idle-motion" src="assets/asset_09_54c63dd5d83f8f0e.png" alt="主人公"><div id="heroSlash" class="slash-effect"></div><div id="heroImpact" class="battle-impact"></div><div id="impactFlash" class="impact-flash"></div></div>
+        <div class="battle-hp"><div id="battleHpFill"></div></div>
+        <div class="battle-hptext" id="battleHpText">100 / 100</div>
+      </section>
+    </div>
+
+    <div class="battle-log" id="battleLog">魔物が立ちはだかった！</div>
+
+    <div class="battle-actions">
+      <button class="battle-btn" data-battle="attack">ATTACK</button>
+      <button class="battle-btn" data-battle="skill">SKILL</button>
+      <button class="battle-btn" data-battle="item">ITEM</button>
+      <button class="battle-btn" data-battle="escape">ESCAPE</button>
+    </div>
+    <div class="battle-note">ターン制バトル。行動を選ぶと敵のターンへ進みます。</div>
+  </div>
+</div>
+
+<div id="overlay" class="overlay">
+  <div class="dialog">
+    <h3 id="dialogTitle">DUNGEON RESTART</h3>
+    <p id="dialogText"></p>
+    <button id="dialogClose">戻る</button>
+  </div>
+</div>
+
+<audio id="bgm" src="assets/asset_10_66915667bcaf171a.mp3" loop preload="auto"></audio>
+
+<script>
+const EMBEDDED_ASSETS = {"assets/player_down_1.png":"assets/asset_11_36beef2b84f0090a.png","assets/title_hero_cutout.png":"assets/asset_03_3f8a97ee2dd9569b.png","assets/player_down_3.png":"assets/asset_12_0a66ec3f312ce958.png","assets/player_left_3.png":"assets/asset_13_aef8a98e3c7d6060.png","assets/player_up_4.png":"assets/asset_14_dae4f8d1db2af9aa.png","assets/battle_bgm.mp3":"assets/asset_05_6deba7cc97126bb6.mp3","assets/player_up_1.png":"assets/asset_15_5047f2c201fa46e6.png","assets/player_right_1.png":"assets/asset_16_7961aed8bc9751ef.png","assets/player_right_4.png":"assets/asset_17_c5fdb833cd62e880.png","assets/player_down_2.png":"assets/asset_18_2d66a19ce8100aa7.png","assets/player_left_4.png":"assets/asset_19_643a64df3d957bda.png","assets/player_up_2.png":"assets/asset_20_573ae2631636b363.png","assets/player_up_3.png":"assets/asset_21_db467bdc704674e5.png","assets/dungeon_bgm.mp3":"assets/asset_10_66915667bcaf171a.mp3","assets/player_explore.png":"assets/asset_07_0486ad84783295b4.png","assets/title_bgm.mp3":"assets/asset_04_9622f7861d190ae6.mp3","assets/enemy_slime.png":"assets/asset_08_9e4b93bf95702bd2.png","assets/naginata_slash.wav":"assets/asset_22_4d5a7c2daf7802b0.wav","assets/player_right_2.png":"assets/asset_23_5293f9af378f4d40.png","assets/player_down_4.png":"assets/asset_24_04595463ef9d2be6.png","assets/player_left_1.png":"assets/asset_25_7681b1dfde82a4d4.png","assets/naginata_upper.wav":"assets/asset_26_61ceb5e13b426cee.wav","assets/player_right_3.png":"assets/asset_27_80fda4087695f10d.png","assets/player_left_2.png":"assets/asset_28_cb34f3365d4835ef.png","assets/naginata_hit.wav":"assets/asset_29_78e042b31de63008.wav","assets/title_screen.jpg":"assets/asset_02_250e278b39f662b2.jpg","assets/battle_enemy/s01_recoil.png":"assets/asset_30_cb9c7036dd74e88b.png","assets/battle_enemy/s05_air.png":"assets/asset_31_9dc1fefdae8f5357.png","assets/battle_enemy/n08_idle.png":"assets/asset_08_9e4b93bf95702bd2.png","assets/battle_enemy/s07_land.png":"assets/asset_32_5a0cffbc9ed249f0.png","assets/battle_enemy/s02_recoil.png":"assets/asset_33_177e4edcdf31894f.png","assets/battle_enemy/n07_settle.png":"assets/asset_34_e7260c417f95b5ec.png","assets/battle_enemy/n05_land.png":"assets/asset_35_92d3683052c9c6ba.png","assets/battle_enemy/n01_recoil.png":"assets/asset_36_81b3e1e2c856da72.png","assets/battle_enemy/s03_air.png":"assets/asset_37_86668f1ebba17a84.png","assets/battle_enemy/s06_land.png":"assets/asset_38_e38efaad26d0609b.png","assets/battle_enemy/n04_air.png":"assets/asset_39_24257d291c90fdc4.png","assets/battle_enemy/s04_air.png":"assets/asset_40_5be8fa0355f92ff2.png","assets/battle_enemy/n02_recoil.png":"assets/asset_41_fc26c5d53048b21a.png","assets/battle_enemy/n06_land.png":"assets/asset_42_419bcc1071500619.png","assets/battle_enemy/s08_settle.png":"assets/asset_43_d4a3df03bbfd80c9.png","assets/battle_enemy/n03_air.png":"assets/asset_44_5e68ed5f2914b170.png","assets/battle_enemy/s09_idle.png":"assets/asset_08_9e4b93bf95702bd2.png","assets/battle/battle_hit.png":"assets/asset_45_21f84238d4ba0a36.png","assets/battle/battle_win.png":"assets/asset_46_a40ac7221505f869.png","assets/battle/battle_skill.png":"assets/asset_47_af28fc0548cb0c66.png","assets/battle/battle_slash.png":"assets/asset_48_c7d24f87d5b61915.png","assets/battle/battle_idle.png":"assets/asset_09_54c63dd5d83f8f0e.png"};
+
+const titleScreen = document.getElementById("titleScreen");
+const titleStartBtn = document.getElementById("titleStartBtn");
+const titleHeroWrap = document.getElementById("titleHeroWrap");
+const titleContent = document.getElementById("titleContent");
+const titleBgm = document.getElementById("titleBgm");
+const titleVolume = document.getElementById("titleVolume");
+const titleVolumeValue = document.getElementById("titleVolumeValue");
+const gameMain = document.getElementById("gameMain");
+const floorTransition = document.getElementById("floorTransition");
+
+const battleBgm = document.getElementById("battleBgm");
+let dungeonBgmResumeTime = 0;
+
+function fadeAudio(audio, target, duration=350, onDone=null){
+  if(!audio){ if(onDone) onDone(); return; }
+  const start = audio.volume;
+  const diff = target - start;
+  const steps = Math.max(1, Math.round(duration / 25));
+  let i = 0;
+  const timer = setInterval(()=>{
+    i++;
+    audio.volume = Math.max(0, Math.min(1, start + diff * (i/steps)));
+    if(i >= steps){
+      clearInterval(timer);
+      audio.volume = Math.max(0, Math.min(1, target));
+      if(onDone) onDone();
+    }
+  }, duration/steps);
+}
+
+const bossBattleBgm = document.getElementById("bossBattleBgm");
+let activeBattleBgm = battleBgm;
+
+function startBattleBgm(isBoss=false){
+  const dungeonBgm = document.getElementById("bgm");
+  if(dungeonBgm && !dungeonBgm.paused){
+    dungeonBgmResumeTime = dungeonBgm.currentTime;
+    fadeAudio(dungeonBgm, 0, 260, ()=>{
+      dungeonBgm.pause();
+      dungeonBgm.volume = 0.55;
+    });
+  }
+  activeBattleBgm = isBoss && bossBattleBgm ? bossBattleBgm : battleBgm;
+  if(activeBattleBgm){
+    activeBattleBgm.currentTime = 0;
+    activeBattleBgm.volume = 0;
+    activeBattleBgm.play().then(()=>fadeAudio(activeBattleBgm, 0.58, 320)).catch(()=>{});
+  }
+}
+
+function stopBattleBgmAndResumeDungeon(){
+  const dungeonBgm = document.getElementById("bgm");
+  if(activeBattleBgm && !activeBattleBgm.paused){
+    const audio=activeBattleBgm;
+    fadeAudio(audio, 0, 280, ()=>{
+      audio.pause();
+      audio.currentTime = 0;
+      audio.volume = 0.58;
+    });
+  }
+  if(dungeonBgm){
+    dungeonBgm.currentTime = dungeonBgmResumeTime || dungeonBgm.currentTime || 0;
+    dungeonBgm.volume = 0;
+    dungeonBgm.play().then(()=>fadeAudio(dungeonBgm, 0.55, 360)).catch(()=>{});
+  }
+}
+
+let titleTransitioning = false;
+function setTitleVolume(value){const volume=Math.max(0,Math.min(100,Number(value)))/100;if(titleBgm)titleBgm.volume=volume;if(titleVolumeValue)titleVolumeValue.textContent=Math.round(volume*100)+"%";try{localStorage.setItem("dungeonRestartTitleVolume",String(Math.round(volume*100)))}catch(e){}}
+function fadeOutAudio(audio,duration=900){if(!audio)return;const start=audio.volume;const t0=performance.now();function tick(now){const p=Math.min(1,(now-t0)/duration);audio.volume=start*(1-p);if(p<1)requestAnimationFrame(tick);else{audio.pause();audio.currentTime=0}}requestAnimationFrame(tick)}
+function startGameFromTitle(){
+  if(titleTransitioning)return; titleTransitioning=true; titleStartBtn.disabled=true;
+  // Unlock media from the user's gesture, then begin the title track.
+  if(titleBgm){
+    titleBgm.volume = Math.max(0, Math.min(1, Number(titleVolume ? titleVolume.value : 62) / 100));
+    beginTitleBgm();
+  }
+  titleContent.classList.add("leaving"); titleScreen.classList.add("entering"); titleHeroWrap.classList.add("title-hero-step");
+  // Keep the title track audible throughout the hero's entry.
+  // Fade it only as the hero reaches the dungeon entrance.
+  setTimeout(()=>fadeOutAudio(titleBgm,850),1500);
+  setTimeout(()=>{
+    // Hero has reached the dungeon entrance. Hold a short black beat,
+    // then reveal B1F with a gentle camera pull-back.
+    titleScreen.classList.add("hide");
+    gameMain.style.display="";
+    gameMain.classList.add("b1f-camera-enter");
+    if(floorTransition){
+      floorTransition.classList.add("active");
+      setTimeout(()=>floorTransition.classList.remove("active"),1150);
+    }
+
+    const dungeonBgm=document.getElementById("bgm");
+    if(dungeonBgm){
+      dungeonBgm.volume=0.55;
+      dungeonBgm.play().then(()=>{
+        const btn=document.getElementById("bgmBtn");
+        if(btn)btn.innerHTML="<strong>♪ ダンジョン攻略中</strong>BGM再生中";
+      }).catch(()=>{})
+    }
+
+    setTimeout(()=>gameMain.classList.remove("b1f-camera-enter"),1250);
+  },2350);
+}
+if(titleStartBtn)titleStartBtn.addEventListener("click",startGameFromTitle);
+if(titleVolume)titleVolume.addEventListener("input",e=>setTitleVolume(e.target.value));
+function beginTitleBgm(){if(!titleBgm||titleScreen.classList.contains("hide"))return;titleBgm.loop=true;if(titleBgm.paused)titleBgm.play().catch(()=>{});}
+window.addEventListener("load",()=>{let saved=62;try{const v=Number(localStorage.getItem("dungeonRestartTitleVolume"));if(Number.isFinite(v))saved=Math.max(0,Math.min(100,v))}catch(e){}if(titleVolume)titleVolume.value=saved;setTitleVolume(saved);beginTitleBgm();});
+window.addEventListener("pointerdown",()=>beginTitleBgm(),{once:true,passive:true});
+window.addEventListener("touchstart",()=>beginTitleBgm(),{once:true,passive:true});
+
+let MAP = [
+  "#############",
+  "#S..#....C..#",
+  "#.#.#.###.#.#",
+  "#.#...#...#.#",
+  "#.#####.#.#.#",
+  "#.....#.#...#",
+  "###.#.#.###.#",
+  "#...#...E...#",
+  "#############"
+];
+
+const FLOOR_DATA = {
+  1: {
+    name:"地下迷宮・第1階層", short:"B1F",
+    map:MAP,
+    enemies:[
+      ["3,1",{id:"b1s1",type:"slime",name:"PURPLE SLIME",hp:40,maxHp:40,atk:8,gold:25,exp:30}],
+      ["5,3",{id:"b1s2",type:"slime",name:"PURPLE SLIME",hp:40,maxHp:40,atk:9,gold:30,exp:35}],
+      ["5,5",{id:"b1s3",type:"slime",name:"PURPLE SLIME",hp:50,maxHp:50,atk:10,gold:40,exp:45}],
+      ["9,7",{id:"b1s4",type:"slime",name:"PURPLE SLIME",hp:60,maxHp:60,atk:12,gold:60,exp:65}]
+    ]
+  },
+  2: {
+    name:"地下迷宮・第2階層", short:"B2F",
+    map:['#################','#S....#.........#','#.###.#.#####.#.#','#...#.#.....#.#.#','###.#.#####.#.#.#','#...#.....#...#.#','#.#######.#####.#','#.......#.......#','#.#####.#.#####.#','#.....#.#.....#.#','#####.#.#####.#.#','#.....#.....#...#','#.#########.#.###','#...........E...#','#################'],
+    enemies:[
+      ["2,1",{id:"b2g1",type:"goblin",name:"GREEN GOBLIN",hp:55,maxHp:55,atk:10,gold:22,exp:35}],
+      ["4,1",{id:"b2s1",type:"slime",name:"PURPLE SLIME",hp:42,maxHp:42,atk:8,gold:20,exp:28}],
+      ["8,1",{id:"b2g2",type:"goblin",name:"GREEN GOBLIN",hp:60,maxHp:60,atk:11,gold:25,exp:40}],
+      ["10,1",{id:"b2s2",type:"slime",name:"PURPLE SLIME",hp:45,maxHp:45,atk:9,gold:24,exp:30}],
+      ["3,3",{id:"b2g3",type:"goblin",name:"GREEN GOBLIN",hp:65,maxHp:65,atk:12,gold:28,exp:44}],
+      ["8,3",{id:"b2s3",type:"slime",name:"PURPLE SLIME",hp:48,maxHp:48,atk:9,gold:25,exp:32}],
+      ["10,3",{id:"b2g4",type:"goblin",name:"GREEN GOBLIN",hp:70,maxHp:70,atk:13,gold:30,exp:48}],
+      ["13,3",{id:"b2s4",type:"slime",name:"PURPLE SLIME",hp:50,maxHp:50,atk:10,gold:27,exp:35}],
+      ["3,5",{id:"b2g5",type:"goblin",name:"GREEN GOBLIN",hp:58,maxHp:58,atk:10,gold:24,exp:38}],
+      ["6,5",{id:"b2s5",type:"slime",name:"PURPLE SLIME",hp:52,maxHp:52,atk:10,gold:30,exp:38}],
+      ["8,5",{id:"b2pg1",type:"goblin_purple",name:"PURPLE GOBLIN",hp:82,maxHp:82,atk:15,gold:42,exp:65,rare:true}],
+      ["12,5",{id:"b2s6",type:"slime",name:"PURPLE SLIME",hp:55,maxHp:55,atk:10,gold:32,exp:40}],
+      ["2,7",{id:"b2g6",type:"goblin",name:"GREEN GOBLIN",hp:75,maxHp:75,atk:14,gold:34,exp:52}],
+      ["5,7",{id:"b2s7",type:"slime",name:"PURPLE SLIME",hp:58,maxHp:58,atk:11,gold:34,exp:42}],
+      ["10,7",{id:"b2pg2",type:"goblin_purple",name:"PURPLE GOBLIN",hp:90,maxHp:90,atk:16,gold:48,exp:72,rare:true}]
+    ]
+  },
+  3: {
+    name:"地下迷宮・第3階層", short:"B3F",
+    map:['#########################','#..........##############','#..........##############','###........##############','###...##...##############','###..........############','#................#######','##.................#######','##.......#............###','##.......#...####.....###','##....####..D####.....###','###########...###########','#####...............#####','#####..#.........#..#####','#####...............#####','#####.......B.......#####','#####...............#####','#####..#....E....#..#####','#########################','#########################','#########################'],
+    enemies:[
+      ["2,1",{id:"b3s1",type:"slime",name:"PURPLE SLIME",hp:65,maxHp:65,atk:12,gold:30,exp:45}],
+      ["5,3",{id:"b3g1",type:"goblin",name:"GREEN GOBLIN",hp:80,maxHp:80,atk:14,gold:35,exp:55}],
+      ["8,2",{id:"b3s3",type:"slime",name:"PURPLE SLIME",hp:72,maxHp:72,atk:13,gold:34,exp:50}],
+      ["10,4",{id:"b3pg1",type:"goblin_purple",name:"PURPLE GOBLIN",hp:105,maxHp:105,atk:18,gold:52,exp:78,rare:true}],
+      ["3,5",{id:"b3g3",type:"goblin",name:"GREEN GOBLIN",hp:88,maxHp:88,atk:15,gold:38,exp:58}],
+      ["6,5",{id:"b3s2",type:"slime",name:"PURPLE SLIME",hp:70,maxHp:70,atk:13,gold:34,exp:50}],
+      ["9,5",{id:"b3s4",type:"slime",name:"PURPLE SLIME",hp:76,maxHp:76,atk:14,gold:38,exp:55}],
+      ["14,7",{id:"b3g2",type:"goblin",name:"GREEN GOBLIN",hp:90,maxHp:90,atk:16,gold:40,exp:65}],
+      ["16,7",{id:"b3pg2",type:"goblin_purple",name:"PURPLE GOBLIN",hp:112,maxHp:112,atk:19,gold:58,exp:86,rare:true}],
+      ["4,8",{id:"b3g4",type:"goblin",name:"GREEN GOBLIN",hp:96,maxHp:96,atk:17,gold:44,exp:68}],
+      ["8,8",{id:"b3s5",type:"slime",name:"PURPLE SLIME",hp:82,maxHp:82,atk:15,gold:42,exp:60}],
+      ["12,9",{id:"b3l1",type:"skeleton",name:"SKELETON LORD",hp:120,maxHp:120,atk:18,gold:55,exp:80}],
+      ["11,9",{id:"b3q1",type:"skeleton_queen",name:"SKELETON QUEEN",hp:180,maxHp:180,atk:24,gold:100,exp:140,rare:true}],
+      ["11,11",{id:"b3l2",type:"skeleton",name:"SKELETON LORD",hp:135,maxHp:135,atk:20,gold:60,exp:90}],
+      ["9,10",{id:"b3pg3",type:"goblin_purple",name:"PURPLE GOBLIN",hp:118,maxHp:118,atk:20,gold:62,exp:92,rare:true}],
+      ["7,11",{id:"b3s6",type:"slime",name:"PURPLE SLIME",hp:88,maxHp:88,atk:15,gold:45,exp:64}],
+      ["14,10",{id:"b3g5",type:"goblin",name:"GREEN GOBLIN",hp:100,maxHp:100,atk:18,gold:46,exp:70}],
+      ["17,9",{id:"b3s7",type:"slime",name:"PURPLE SLIME",hp:92,maxHp:92,atk:16,gold:48,exp:68}],
+      ["14,8",{id:"b3tanuki",type:"thief_tanuki",name:"THIEF TANUKI",hp:260,maxHp:260,atk:22,gold:5000,exp:5000,bonus:true}],
+      ["12,15",{id:"b3boss",type:"boss",name:"SKELETON SOLDIER DRAGON KING",hp:520,maxHp:520,atk:34,gold:500,exp:650,boss:true}]
+    ]
+  }
+};
+
+let currentFloor=1;
+let enemies = new Map(FLOOR_DATA[1].enemies.map(([k,v])=>[k,{...v}]));
+const respawnTimers = new Map();
+const RESPAWN_MS = 20000;
+
+const state = {
+  x: 1, y: 1, hp: 100, maxHp: 100, mp: 30, maxMp: 30,
+  lv: 1, gold: 0, exp: 0, expNext: 100, potions: 3,
+  atk:15, def:8, spd:10,
+  bonusTanukiDefeated:false,
+  revealed: new Set(["1,1"]), chestOpened:false,
+  direction: "down", animFrame: 1, idleFrame: 1, walking: false, moving: false,
+  floor:1, chestOpened:false, battle: null, battleBusy: false
+};
+
+const mapEl = document.getElementById("map");
+const logEl = document.getElementById("log");
+const overlay = document.getElementById("overlay");
+const dialogTitle = document.getElementById("dialogTitle");
+const dialogText = document.getElementById("dialogText");
+const bgm = document.getElementById("bgm");
+const bgmBtn = document.getElementById("bgmBtn");
+
+function isWalkable(x,y){ return MAP[y]?.[x] && MAP[y][x] !== "#"; }
+
+function tileChar(x,y){
+  if(x===state.x && y===state.y) return "P";
+  return MAP[y][x];
+}
+
+// Torches are mounted on wall cells only, always touching a walkable corridor.
+const TORCHES=new Set(["4,2","6,3","8,4","10,2","0,5","12,6","4,6","8,6"]);
+function isNearPlayer(x,y){
+  const dx=Math.abs(x-state.x), dy=Math.abs(y-state.y);
+  return Math.max(dx,dy)<=3;
+}
+function torchVisible(x,y){return isNearPlayer(x,y) || state.revealed.has(`${x},${y}`);}
+function updatePlayerLight(){
+  mapEl.style.setProperty("--light-x",`${((state.x+.5)/MAP[0].length)*100}%`);
+  mapEl.style.setProperty("--light-y",`${((state.y+.5)/MAP.length)*100}%`);
+}
+function render(){
+  mapEl.style.setProperty("--map-cols", MAP[0].length);
+  mapEl.style.setProperty("--map-rows", MAP.length);
+  mapEl.innerHTML = "";
+  for(let y=0;y<MAP.length;y++){
+    for(let x=0;x<MAP[y].length;x++){
+      const t=document.createElement("div");
+      const c=MAP[y][x];
+      const key=`${x},${y}`;
+      t.className="tile "+(c==="#"?"wall":"floor-tile");
+
+      // The map itself remains visible. Darkness is handled by the radial light
+      // overlay instead of painting each distant tile solid black. This prevents
+      // the explored area from collapsing into a small black island.
+      const distance=Math.max(Math.abs(x-state.x),Math.abs(y-state.y));
+      if(distance<=3) t.classList.add("visible");
+      if(state.revealed.has(key)) t.classList.add("revealed");
+
+      // Keep a very subtle distant haze, not an opaque per-tile fog.
+      if(distance>4){
+        const fog=document.createElement("div");
+        fog.className="fog distant-fog";
+        t.appendChild(fog);
+      }
+
+      // Torches are only mounted on wall cells adjacent to a walkable corridor.
+      if(c==="#" && TORCHES.has(key) && [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>isWalkable(x+dx,y+dy))){
+        t.insertAdjacentHTML("beforeend",`<span class="torch"><span class="torch-glow"></span><span class="torch-flame"></span><span class="torch-cup"></span><span class="torch-bracket"></span></span>`);
+      }
+
+      if(c==="C" && !state.chestOpened) t.insertAdjacentHTML("beforeend","<span class='chest'>▣</span>");
+      if(c==="D") t.insertAdjacentHTML("beforeend",`<span class="door ${state.b3DoorOpen?'open':''}">${state.b3DoorOpen?'▱':'🚪'}</span>`);
+      if(c==="E") t.insertAdjacentHTML("beforeend","<span class='stair'>⇩</span>");
+      const enemy=enemies.get(key);
+      if(enemy){
+        const glyph = enemy.boss ? "♛" : ((enemy.type==="goblin" || enemy.type==="goblin_purple") ? "♟" : "◆");
+        t.insertAdjacentHTML("beforeend",`<span class="enemy ${enemy.type}${enemy.boss?' boss-enemy':''}">${glyph}</span>`);
+      }
+
+      if(x===state.x && y===state.y){
+        t.style.zIndex="40";
+        const img=document.createElement("img");
+        const frame=Math.max(1,Math.min(4,state.animFrame));
+        img.src=EMBEDDED_ASSETS[`assets/player_${state.direction}_${frame}.png`];
+        img.className="player-sprite"+(state.walking?" walking":" idle");
+        img.alt="主人公";
+        t.appendChild(img);
+
+        const light=document.createElement("span");
+        light.className="player-light";
+        t.appendChild(light);
+      }
+      mapEl.appendChild(t);
+    }
+  }
+  updatePlayerLight();
+  document.getElementById("hpText").textContent=`${state.hp}/${state.maxHp}`;
+  document.getElementById("mpText").textContent=`${state.mp}/${state.maxMp}`;
+  document.getElementById("hpFill").style.width=(state.hp/state.maxHp*100)+"%";
+  document.getElementById("mpFill").style.width=(state.mp/state.maxMp*100)+"%";
+  document.getElementById("lv").textContent=state.lv;
+  document.getElementById("atk").textContent=state.atk;
+  document.getElementById("def").textContent=state.def;
+  document.getElementById("spd").textContent=state.spd;
+  document.getElementById("gold").textContent=state.gold;
+  document.getElementById("expText").textContent=`${state.exp}/${state.expNext}`;
+  document.getElementById("potionText").textContent=state.potions;
+}
+
+function log(msg){ logEl.innerHTML=msg; }
+
+function revealAround(){
+  for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++){
+    const x=state.x+dx,y=state.y+dy;
+    if(MAP[y]?.[x] && MAP[y][x]!=="#") state.revealed.add(`${x},${y}`);
+  }
+}
+
+function move(dir){
+  if(state.moving) return;
+
+  if(dir==="wait"){
+    state.idleFrame = (state.idleFrame % 4) + 1;
+    render();
+    log("主人公はその場で静かに待機している。");
+    return;
+  }
+
+  let dx=0,dy=0;
+  if(dir==="up"){dy=-1;state.direction="up";}
+  if(dir==="down"){dy=1;state.direction="down";}
+  if(dir==="left"){dx=-1;state.direction="left";}
+  if(dir==="right"){dx=1;state.direction="right";}
+
+  const nx=state.x+dx, ny=state.y+dy;
+  if(!isWalkable(nx,ny)){
+    state.walking=false;
+    render();
+    log("壁がある。こちらには進めない。");
+    return;
+  }
+
+  state.moving=true;
+  state.walking=true;
+
+  /*
+    1マス = 280ms。
+    4フレームを均等にせず、
+    「踏み出し → 荷重 → 中間 → 着地」のリズムにする。
+    これにより、単なる画像切替ではなく足運びとして見える。
+  */
+  const frameDurations = [58, 70, 82, 70];
+  let frameIndex = 0;
+  let elapsed = 0;
+
+  state.animFrame=1;
+  render();
+
+  const timer=setInterval(()=>{
+    elapsed += 10;
+
+    if(elapsed >= frameDurations[frameIndex]){
+      elapsed -= frameDurations[frameIndex];
+      frameIndex = (frameIndex + 1) % 4;
+      state.animFrame = frameIndex + 1;
+      render();
+    }
+  },10);
+
+  setTimeout(()=>{
+    clearInterval(timer);
+
+    state.x=nx;
+    state.y=ny;
+    state.animFrame=1;
+    state.walking=false;
+    state.moving=false;
+    revealAround();
+
+    const c=MAP[ny][nx];
+    const enemy = enemies.get(`${nx},${ny}`);
+
+    if(enemy){
+      log("魔物と接触した！");
+      render();
+      startBattle(`${nx},${ny}`, enemy);
+      return;
+    }
+
+    if(c==="C" && !state.chestOpened){
+      state.chestOpened=true;
+      state.gold+=50;
+      showDialog("宝箱を発見！","宝箱を開けた！<br><b>50 GOLD</b>を手に入れた。");
+    }else if(c==="D" && state.floor===3 && !state.b3DoorOpen){
+      state.b3DoorOpen=true;
+      MAP[ny]=MAP[ny].slice(0,nx)+"."+MAP[ny].slice(nx+1);
+      showDialog("エリアボスの扉","重い扉を開けた。<br>その先には、巨大な広間が広がっている……。");
+      render();
+      return;
+    }else if(c==="E" && state.floor===3){
+      if(!state.b3BossDefeated){
+        showDialog("階段","エリアボスを倒さなければ、階段を降りることはできない。");
+        render();
+        return;
+      }
+      showDialog("階段","エリアボスの後ろに、さらに地下へ続く階段がある。<br>――次の階層へ。");
+      render();
+      return;
+    }else if(c==="E" && (state.floor===1 || state.floor===2)){
+      goToFloor(state.floor+1);
+      return;
+    }else{
+      log("主人公は静かにダンジョンを進んでいる。");
+    }
+
+    render();
+
+    /*
+      停止後は歩行4フレームの最後から1フレーム目へ
+      パッと戻さず、短い待機遷移を入れる。
+    */
+    setTimeout(()=>{
+      if(!state.moving){
+        state.animFrame=1;
+        render();
+      }
+    },90);
+
+  },280);
+}
+
+
+function refreshFloorUI(){
+  const data=FLOOR_DATA[state.floor];
+  document.querySelector(".floor").textContent=data.short;
+  document.querySelector(".map-head span:first-child").textContent=data.name;
+  mapEl.setAttribute("aria-label",`${data.short} dungeon map`);
+}
+
+function goToFloor(floor){
+  if(!FLOOR_DATA[floor]) return;
+  respawnTimers.forEach(t=>clearTimeout(t));
+  respawnTimers.clear();
+  state.floor=floor; currentFloor=floor;
+  MAP=FLOOR_DATA[floor].map;
+  enemies=new Map(
+    FLOOR_DATA[floor].enemies
+      .filter(([k,v])=>!(v.bonus && state.bonusTanukiDefeated))
+      .map(([k,v])=>[k,{...v,hp:v.maxHp}])
+  );
+  state.x=1; state.y=1; state.direction="down"; state.animFrame=1; state.walking=false; state.moving=false;
+  state.revealed=new Set(["1,1"]);
+  state.chestOpened=false;
+  if(floor===3 && !state.b3BossDefeated) state.b3DoorOpen=false;
+  refreshFloorUI();
+  revealAround(); render();
+  log(`${FLOOR_DATA[floor].name}へ降りた。<br>魔物の気配が多い。`);
+}
+
+function scheduleRespawn(key, enemy){
+  if(respawnTimers.has(key)) clearTimeout(respawnTimers.get(key));
+  const fresh={...enemy, hp:enemy.maxHp};
+  const timer=setTimeout(()=>{
+    if(!enemies.has(key)){
+      enemies.set(key,fresh);
+      render();
+      log(`${fresh.name}が再び現れた！`);
+    }
+    respawnTimers.delete(key);
+  },RESPAWN_MS);
+  respawnTimers.set(key,timer);
+}
+
+const BOSS_DRAGON_IMG = "assets/asset_49_d1d7756b2e178b26.png";
+const SKELETON_QUEEN_IMG = "assets/asset_50_dba09f6e088e6486.png";
+const SKELETON_LORD_IMG = "assets/asset_51_dfe13fa8ab7118cc.png";
+
+const THIEF_TANUKI_IMG = "thief_tanuki.png";
+
+function enemyBattleSource(enemy){
+  if(enemy.boss) return BOSS_DRAGON_IMG;
+  if(enemy.type==="thief_tanuki") return THIEF_TANUKI_IMG;
+  if(enemy.type==="skeleton_queen") return SKELETON_QUEEN_IMG;
+  if(enemy.type==="skeleton") return SKELETON_LORD_IMG;
+  if(enemy.type==="goblin" || enemy.type==="goblin_purple") return GOBLIN_SVG;
+  return EMBEDDED_ASSETS["assets/enemy_slime.png"];
+}
+
+const GOBLIN_SVG = 'assets/asset_52_d6fe969c2aa91f76.svg';
+
+const battleScreen = document.getElementById("battleScreen");
+battleScreen.classList.remove("show");
+const battleLogEl = document.getElementById("battleLog");
+const turnBadge = document.getElementById("turnBadge");
+
+function setBattleLog(text){ battleLogEl.innerHTML=text; }
+
+function updateBattleUI(){
+  if(!state.battle) return;
+  const b=state.battle;
+  document.getElementById("enemyName").textContent=b.enemy.name;
+  document.getElementById("enemyHpText").textContent=`${Math.max(0,b.enemy.hp)} / ${b.enemy.maxHp}`;
+  document.getElementById("enemyHpFill").style.width=(Math.max(0,b.enemy.hp)/b.enemy.maxHp*100)+"%";
+  document.getElementById("battleHpText").textContent=`${state.hp} / ${state.maxHp}`;
+  document.getElementById("battleHpFill").style.width=(state.hp/state.maxHp*100)+"%";
+  turnBadge.textContent=b.turn==="player" ? "PLAYER TURN" : "ENEMY TURN";
+  document.querySelectorAll("[data-battle]").forEach(btn=>{
+    btn.disabled = state.battleBusy || b.turn!=="player";
+  });
+}
+
+function animateFighter(id, cls){
+  const el=document.getElementById(id);
+  el.classList.remove("idle-motion",cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+  setTimeout(()=>{
+    el.classList.remove(cls);
+    if(id==="heroFighter" && el.querySelector(".hero-battle-img")){
+      el.querySelector(".hero-battle-img").classList.add("idle-motion");
+    }
+    if(id==="enemyFighter" && el.querySelector(".enemy-img")){
+      el.querySelector(".enemy-img").classList.add("idle-motion");
+    }
+  },320);
+}
+
+function setHeroBattleFrame(frame){
+  const img=document.getElementById("heroBattleImg");
+  if(!img) return;
+  img.src=EMBEDDED_ASSETS[`assets/battle/battle_${frame}.png`];
+}
+
+function resetHeroBattleMotion(){
+  const img=document.getElementById("heroBattleImg");
+  if(!img) return;
+  img.className="hero-battle-img battle-fighter-img idle-motion";
+  setHeroBattleFrame("idle");
+}
+
+function playNaginataHitSound(kind="slash"){
+  const file = kind==="skill"
+    ? "assets/naginata_upper.wav"
+    : "assets/naginata_slash.wav";
+  const audio=new Audio(EMBEDDED_ASSETS[file] || file);
+  audio.volume=0.72;
+  audio.currentTime=0;
+  audio.play().catch(()=>{});
+}
+
+function triggerHitSync(kind){
+  const stage=document.querySelector(".battle-stage");
+  const fx=document.getElementById("heroSlash");
+  const impact=document.getElementById("heroImpact");
+  const flash=document.getElementById("impactFlash");
+
+  // Single authoritative hit frame.
+  if(fx){
+    fx.classList.remove("show","skill"); void fx.offsetWidth;
+    if(kind==="skill") fx.classList.add("skill");
+    fx.classList.add("show");
+  }
+  if(flash){
+    flash.classList.remove("show"); void flash.offsetWidth; flash.classList.add("show");
+  }
+  if(impact){
+    impact.classList.remove("show"); void impact.offsetWidth; impact.classList.add("show");
+  }
+
+  playNaginataHitSound(kind);
+
+  if(stage){
+    stage.classList.add("hit-stop");
+    setTimeout(()=>stage.classList.remove("hit-stop"),kind==="skill"?72:60);
+  }
+
+  // Enemy reaction starts on exactly this frame.
+  animateEnemyHit(kind);
+}
+function animateHeroAttack(kind,onImpact){
+  const img=document.getElementById("heroBattleImg");
+  if(!img) return;
+  const skill=kind==="skill";
+  const windup=skill?135:110;
+  const swing=skill?205:170;
+  const recovery=skill?135:120;
+  const impactAt=windup+(skill?128:104);
+
+  img.className="hero-battle-img battle-fighter-img";
+  void img.offsetWidth;
+  setHeroBattleFrame(skill?"skill":"slash");
+
+  // 1. 踏み込み・溜め
+  img.classList.add(skill?"skill-windup":"attack-windup");
+
+  // 2. 振り抜き
+  setTimeout(()=>{
+    img.classList.remove(skill?"skill-windup":"attack-windup");
+    img.classList.add(skill?"skill-swing":"attack-swing");
+  },windup);
+
+  // 3. 唯一の命中フレーム
+  setTimeout(()=>{
+    triggerHitSync(skill?"skill":"slash");
+    if(onImpact) onImpact();
+  },impactAt);
+
+  // 4. 硬直・フォロー
+  setTimeout(()=>{
+    img.classList.remove(skill?"skill-swing":"attack-swing");
+    img.classList.add(skill?"skill-follow":"attack-follow");
+  },windup+swing);
+
+  // 5. 待機復帰
+  setTimeout(()=>{
+    img.className="hero-battle-img battle-fighter-img";
+    setHeroBattleFrame("idle");
+    img.classList.add("idle-motion");
+  },windup+swing+recovery);
+}
+function setEnemyReactionFrame(file, transform="translate(0,0) rotate(0deg) scale(1)"){
+  const img=document.getElementById("enemyBattleImg");
+  if(!img) return;
+  img.src=EMBEDDED_ASSETS[`assets/battle_enemy/${file}.png`];
+  img.style.transform=transform;
+}
+
+function animateEnemyHit(kind="slash"){
+  const img=document.getElementById("enemyBattleImg");
+  if(!img) return;
+  const skill=kind==="skill";
+  if(img.dataset.enemyType==="goblin" || img.dataset.enemyType==="goblin_purple"){
+    img.classList.remove("idle-motion","hit-motion");
+    void img.offsetWidth; img.classList.add("hit-motion");
+    setTimeout(()=>{ if(img) img.classList.add("idle-motion"); },260);
+    return;
+  }
+
+  // 命中イベントと同一フレームで被弾開始。
+  // 1枚の絵をCSSで揺らすのではなく、複数のピクセル絵を順番に切り替える。
+  img.classList.remove("idle-motion","hit-motion","knockback-motion");
+  img.classList.add("frame-reaction");
+  img.style.transform="translate(0,0) rotate(0deg) scale(1)";
+
+  const frames = skill ? [
+    ["s01_recoil", 90,  "translate(-3px,1px) rotate(-7deg) scale(1.00)"],
+    ["s02_recoil", 55,  "translate(1px,0) rotate(10deg) scale(1.01)"],
+    ["s03_air",    70,  "translate(9px,-5px) rotate(18deg) scale(1.02)"],
+    ["s04_air",    65,  "translate(17px,-11px) rotate(27deg) scale(1.04)"],
+    ["s05_air",    60,  "translate(24px,-8px) rotate(35deg) scale(1.02)"],
+    ["s06_land",   45,  "translate(22px,5px) rotate(-10deg) scale(1.04)"],
+    ["s07_land",   70,  "translate(15px,6px) rotate(5deg) scale(1.02)"],
+    ["s08_settle",65,  "translate(6px,2px) rotate(-2deg) scale(1.01)"],
+    ["s09_idle",   1,  "translate(0,0) rotate(0deg) scale(1)"]
+  ] : [
+    ["n01_recoil", 80, "translate(-2px,1px) rotate(-5deg) scale(1.00)"],
+    ["n02_recoil", 55, "translate(1px,1px) rotate(7deg) scale(1.01)"],
+    ["n03_air",    60, "translate(7px,-3px) rotate(14deg) scale(1.01)"],
+    ["n04_air",    40, "translate(13px,-7px) rotate(20deg) scale(1.02)"],
+    ["n05_land",   30, "translate(13px,4px) rotate(-5deg) scale(1.04)"],
+    ["n06_land",   60, "translate(9px,4px) rotate(3deg) scale(1.02)"],
+    ["n07_settle",50, "translate(4px,1px) rotate(-2deg) scale(1.01)"],
+    ["n08_idle",   1, "translate(0,0) rotate(0deg) scale(1)"]
+  ];
+
+  let i=0;
+  const next=()=>{
+    if(!state.battle || !img) return;
+    const [file,duration,transform]=frames[i];
+    setEnemyReactionFrame(file,transform);
+    if(i>=frames.length-1){
+      img.classList.remove("frame-reaction");
+      img.classList.add("idle-motion");
+      img.style.transform="";
+      img.src="assets/asset_08_9e4b93bf95702bd2.png";
+      return;
+    }
+    i++;
+    setTimeout(next,duration);
+  };
+  next();
+}
+function animateEnemyAttack(){
+  const img=document.getElementById("enemyBattleImg");
+  if(!img) return;
+  img.classList.remove("idle-motion","attack-motion");
+  void img.offsetWidth;
+  img.classList.add("attack-motion");
+  setTimeout(()=>{img.classList.remove("attack-motion");img.classList.add("idle-motion")},240);
+}
+
+function animateHeroHit(){
+  const img=document.getElementById("heroBattleImg");
+  if(!img) return;
+  img.className="hero-battle-img battle-fighter-img hit-motion";
+  setHeroBattleFrame("hit");
+  setTimeout(()=>{
+    setHeroBattleFrame("idle");
+    img.className="hero-battle-img battle-fighter-img idle-motion";
+  },320);
+}
+
+function animateHeroWin(){
+  const img=document.getElementById("heroBattleImg");
+  if(!img) return;
+  img.className="hero-battle-img battle-fighter-img win-motion";
+  setHeroBattleFrame("win");
+}
+
+function startBattle(key, enemy){
+  startBattleBgm(!!enemy.boss);
+  // Clone the enemy so its HP is reset for a new encounter.
+  state.battle = {key, enemy:{...enemy}, turn:"player"};
+  const enemyImg=document.getElementById("enemyBattleImg");
+  if(enemyImg){
+    enemyImg.src=enemyBattleSource(enemy);
+    enemyImg.dataset.enemyType=enemy.type||"slime";
+    enemyImg.style.transform="";
+    enemyImg.style.filter = enemy.type==="goblin_purple"
+      ? "hue-rotate(205deg) saturate(1.15) drop-shadow(0 8px 8px rgba(0,0,0,.72))"
+      : "";
+    enemyImg.style.width = enemy.boss ? "min(52vw, 520px)" :
+      (enemy.type==="thief_tanuki" ? "min(30vw, 300px)" : (enemy.type==="skeleton_queen" ? "min(30vw, 300px)" :
+      (enemy.type==="skeleton" ? "min(24vw, 240px)" : "")));
+    enemyImg.style.maxHeight = enemy.boss ? "min(62vh, 520px)" :
+      (enemy.type==="thief_tanuki" ? "min(52vh, 430px)" : (enemy.type==="skeleton_queen" ? "min(52vh, 430px)" :
+      (enemy.type==="skeleton" ? "min(48vh, 380px)" : "")));
+  }
+  state.battleBusy=false;
+  battleScreen.classList.add("show");
+  document.querySelector(".battle-top .battle-floor").textContent = `${FLOOR_DATA[state.floor].short}`;
+  setBattleLog(`${enemy.name}が現れた！<br>どうする？`);
+  updateBattleUI();
+}
+
+function endBattleVictory(){
+  stopBattleBgmAndResumeDungeon();
+  const b=state.battle;
+  const rewardGold=b.enemy.gold;
+  const rewardExp=b.enemy.exp;
+  enemies.delete(b.key);
+  if(b.enemy.boss){
+    state.b3BossDefeated=true;
+  }else if(b.enemy.bonus){
+    state.bonusTanukiDefeated=true;
+  }else{
+    scheduleRespawn(b.key, b.enemy);
+  }
+
+  state.gold += rewardGold;
+  state.exp += rewardExp;
+
+  let levelMessage="";
+  if(state.exp >= state.expNext){
+    state.exp -= state.expNext;
+    state.lv += 1;
+    const hpUp = 5 + Math.floor(Math.random()*8);
+    const mpUp = 1 + Math.floor(Math.random()*6);
+    const atkUp = Math.floor(Math.random()*6);
+    const defUp = Math.floor(Math.random()*6);
+    const spdUp = Math.floor(Math.random()*6);
+    state.maxHp += hpUp;
+    state.hp = state.maxHp;
+    state.maxMp += mpUp;
+    state.mp = state.maxMp;
+    state.atk += atkUp;
+    state.def += defUp;
+    state.spd += spdUp;
+    state.expNext = Math.floor(state.expNext*1.35);
+    levelMessage=`<br><b>LEVEL UP! Lv.${state.lv}</b>`;
+  }
+
+  animateHeroWin();
+  setBattleLog(`勝利！<br>${rewardGold} GOLD / ${rewardExp} EXPを獲得！${b.enemy.bonus?"<br><b>ボーナス敵撃破！</b>":""}${levelMessage}`);
+  updateBattleUI();
+
+  setTimeout(()=>{
+    battleScreen.classList.remove("show");
+    state.battle=null;
+    state.battleBusy=false;
+    render();
+    log(`戦闘に勝利した！ ${rewardGold} GOLDを手に入れた。`);
+  },900);
+}
+
+function endBattleDefeat(){
+  setBattleLog("力尽きてしまった……<br>最小版では入口へ戻ります。");
+  state.battleBusy=true;
+  setTimeout(()=>{
+    state.hp=state.maxHp;
+    state.mp=state.maxMp;
+    state.x=1; state.y=1;
+    state.battle=null;
+    state.battleBusy=false;
+    stopBattleBgmAndResumeDungeon();
+    battleScreen.classList.remove("show");
+    render();
+    log("入口へ戻された。");
+  },1000);
+}
+
+function enemyTurn(){
+  if(!state.battle) return;
+  const b=state.battle;
+  b.turn="enemy";
+  state.battleBusy=true;
+  updateBattleUI();
+  setBattleLog(`${b.enemy.name}の攻撃！`);
+  animateEnemyAttack();
+  setTimeout(()=>{
+    if(!state.battle) return;
+    const damage=Math.max(1,b.enemy.atk - Math.floor(state.def/4) + Math.floor(Math.random()*4)-1);
+    state.hp=Math.max(0,state.hp-damage);
+    animateHeroHit();
+    setBattleLog(`${b.enemy.name}の攻撃！<br>主人公は <b>${damage}</b> ダメージを受けた！`);
+    updateBattleUI();
+
+    setTimeout(()=>{
+      if(state.hp<=0){ endBattleDefeat(); return; }
+      b.turn="player";
+      state.battleBusy=false;
+      setBattleLog("あなたのターン。行動を選んでください。");
+      updateBattleUI();
+    },550);
+  },450);
+}
+
+function isSkillReactionDelay(action){
+  return action==="skill";
+}
+
+function playerAction(action){
+  if(!state.battle || state.battleBusy || state.battle.turn!=="player") return;
+  const b=state.battle;
+
+  if(action==="escape"){
+    // A simple 70% escape chance keeps the action useful without breaking the loop.
+    state.battleBusy=true;
+    updateBattleUI();
+    if(Math.random()<0.7){
+      setBattleLog("うまく逃げ切った！");
+      setTimeout(()=>{
+        stopBattleBgmAndResumeDungeon();
+        battleScreen.classList.remove("show");
+        state.battle=null;
+        state.battleBusy=false;
+        render();
+        log("戦闘から逃走した。");
+      },600);
+    }else{
+      setBattleLog("逃げられない！");
+      setTimeout(()=>enemyTurn(),500);
+    }
+    return;
+  }
+
+  if(action==="item"){
+    if(state.potions<=0){
+      setBattleLog("HPポーションを持っていない！");
+      return;
+    }
+    if(state.hp===state.maxHp){
+      setBattleLog("HPは満タンだ。");
+      return;
+    }
+    state.potions--;
+    const heal=Math.min(30,state.maxHp-state.hp);
+    state.hp+=heal;
+    state.battleBusy=true;
+    setBattleLog(`HPポーションを使った！<br>HPが <b>${heal}</b> 回復した。`);
+    updateBattleUI();
+    setTimeout(()=>enemyTurn(),650);
+    return;
+  }
+
+  state.battleBusy=true;
+  let damage;
+  if(action==="skill"){
+    if(state.mp<5){
+      state.battleBusy=false;
+      setBattleLog("MPが足りない！");
+      updateBattleUI();
+      return;
+    }
+    state.mp-=5;
+    damage=state.atk+11+Math.floor(Math.random()*7);
+    setBattleLog("紫晶魔法斬り！<br>強烈な一撃を放った！");
+  }else{
+    damage=state.atk+Math.floor(Math.random()*6);
+    setBattleLog("主人公の攻撃！");
+  }
+
+  animateHeroAttack(action==="skill" ? "skill" : "attack", ()=>{
+    if(!state.battle) return;
+    b.enemy.hp=Math.max(0,b.enemy.hp-damage);
+    setBattleLog(`${action==="skill"?"紫晶魔法斬り":"攻撃"}！<br>敵に <b>${damage}</b> ダメージ！`);
+    updateBattleUI();
+
+    if(b.enemy.hp<=0){
+      setTimeout(endBattleVictory,760);
+    }else{
+      // Wait for the enemy's full recoil/knockback before its next turn.
+      setTimeout(enemyTurn, isSkillReactionDelay(action) ? 720 : 620);
+    }
+  });
+}
+
+document.querySelectorAll("[data-battle]").forEach(btn=>{
+  btn.addEventListener("click",()=>playerAction(btn.dataset.battle));
+});
+
+function showDialog(title,text){
+  dialogTitle.textContent=title; dialogText.innerHTML=text; overlay.classList.add("show");
+}
+document.getElementById("dialogClose").onclick=()=>overlay.classList.remove("show");
+document.getElementById("itemBtn").onclick=()=>showDialog("ITEM",`HPポーション × ${state.potions}<br>HPを30回復。戦闘中に使用できます。`);
+document.getElementById("statusBtn").onclick=()=>showDialog("STATUS","Lv. "+state.lv+"<br>HP "+state.hp+"/"+state.maxHp+"　MP "+state.mp+"/"+state.maxMp+"<br>ATK ${state.atk}　DEF ${state.def}　SPD ${state.spd}<br>GOLD "+state.gold);
+document.getElementById("menuBtn").onclick=()=>showDialog("MENU",`${FLOOR_DATA[state.floor].short}探索デモ<br>地下階層を探索しています。`);
+document.querySelectorAll("[data-dir]").forEach(b=>{
+  b.addEventListener("click",()=>move(b.dataset.dir));
+});
+
+document.addEventListener("keydown",e=>{
+  const key=e.key.toLowerCase();
+  const dirs={arrowup:"up",w:"up",arrowdown:"down",s:"down",arrowleft:"left",a:"left",arrowright:"right",d:"right"};
+  if(dirs[key]){ e.preventDefault(); move(dirs[key]); }
+});
+
+bgmBtn.onclick=async()=>{
+  if(bgm.paused){
+    try{ await bgm.play(); bgmBtn.innerHTML="<strong>♪ ダンジョン攻略中</strong>BGM再生中"; }
+    catch{ bgmBtn.innerHTML="<strong>♪ ダンジョン攻略中</strong>もう一度タップしてください"; }
+  }else{
+    bgm.pause(); bgmBtn.innerHTML="<strong>♪ ダンジョン攻略中</strong>BGMを再生";
+  }
+};
+
+refreshFloorUI();
+render();
+revealAround();
+render();
+</script>
+</body>
+</html>
+
+<!-- Enemy pixel-frame reaction: recoil -> airborne -> landing -> settle. Hit event remains authoritative. -->
